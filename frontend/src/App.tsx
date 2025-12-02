@@ -19,6 +19,7 @@ import { OnboardingProvider } from './contexts/OnboardingContext';
 import BottomNavigation from './components/ui/BottomNavigation';
 import OnboardingTour from './components/OnboardingTour';
 import WelcomeModal from './components/WelcomeModal';
+import { ToastProvider } from './contexts/ToastContext';
 
 
 // Lazy load page components for better performance
@@ -669,9 +670,11 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <OnboardingProvider>
-          <AppContent />
-        </OnboardingProvider>
+        <ToastProvider>
+          <OnboardingProvider>
+            <AppContent />
+          </OnboardingProvider>
+        </ToastProvider>
       </AuthProvider>
     </Router>
   );

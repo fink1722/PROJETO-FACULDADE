@@ -9,6 +9,7 @@ import { sessionService, mentorService } from '../services';
 import DocumentCard from '../components/DocumentCard';
 import DocumentUploadModal from '../components/DocumentUploadModal';
 import { useAuth } from '../contexts/AuthContext';
+import { useToastContext } from '../contexts/ToastContext';
 import { formatDate, formatTime, getStatusText } from '../utils/sessionUtils';
 import {
   Calendar,
@@ -35,20 +36,24 @@ import {
   FileText,
   Download,
   Upload,
-  X,
-  Trash2
+  Trash2,
+  Edit2
 } from 'lucide-react';
 
 const SessionDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const toast = useToastContext();
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [session, setSession] = useState<any>(null);
   const [mentor, setMentor] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isJoining, setIsJoining] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Buscar sessão e mentor da API
   useEffect(() => {
@@ -60,7 +65,11 @@ const SessionDetailPage: React.FC = () => {
         const sessionResponse = await sessionService.getById(id!);
         const sessionData = sessionResponse.data;
         setSession(sessionData);
-        setIsSubscribed(sessionData.isEnrolled || false);
+
+        // Verificar se usuário está inscrito
+        if (sessionData.isEnrolled) {
+          setIsSubscribed(true);
+        }
 
         // Buscar mentor
         if (sessionData.mentorId) {
@@ -83,7 +92,6 @@ const SessionDetailPage: React.FC = () => {
   const sessionDocuments = mockDocuments.filter(doc => doc.sessionId === id);
 
   // Verificar se usuário atual é o mentor desta sessão
-  // Comparar com mentor.userId (pois session.mentorId é o ID do mentor, não do usuário)
   const isMentorOfSession = user?.userType === 'mentor' && mentor?.userId === user?.id;
 
   // Loading state
@@ -135,48 +143,34 @@ const SessionDetailPage: React.FC = () => {
   }
 
   const handleSubscribe = async () => {
-    try {
-      await sessionService.join(id!);
-      setIsSubscribed(true);
-      setShowSuccessModal(true);
-      setTimeout(() => setShowSuccessModal(false), 3000);
-
-      // Recarregar dados da sessão para atualizar currentParticipants
-      const sessionResponse = await sessionService.getById(id!);
-      setSession(sessionResponse.data);
-    } catch (error: any) {
-      console.error('Erro ao se inscrever:', error);
-      alert(error.response?.data?.message || 'Erro ao se inscrever na sessão');
-    }
-  };
-
-  const handleUnsubscribe = async () => {
-    try {
-      await sessionService.leave(id!);
-      setIsSubscribed(false);
-      alert('Inscrição cancelada com sucesso!');
-
-      // Recarregar dados da sessão para atualizar currentParticipants
-      const sessionResponse = await sessionService.getById(id!);
-      setSession(sessionResponse.data);
-    } catch (error: any) {
-      console.error('Erro ao cancelar inscrição:', error);
-      alert(error.response?.data?.message || 'Erro ao cancelar inscrição');
-    }
-  };
-
-  const handleDeleteSession = async () => {
-    if (!window.confirm('Tem certeza que deseja excluir esta sessão? Esta ação não pode ser desfeita.')) {
+    if (!id || !user) {
+      setJoinError('Você precisa estar logado para se inscrever');
       return;
     }
 
     try {
-      await sessionService.delete(id!);
-      alert('Sessão excluída com sucesso!');
-      navigate('/sessions');
+      setIsJoining(true);
+      setJoinError(null);
+
+      const response = await sessionService.join(id);
+
+      if (response.success) {
+        setIsSubscribed(true);
+        setShowSuccessModal(true);
+        
+        // Atualizar sessão para refletir novo número de participantes
+        const updatedSession = await sessionService.getById(id);
+        setSession(updatedSession.data);
+        
+        setTimeout(() => setShowSuccessModal(false), 3000);
+      } else {
+        setJoinError(response.message || 'Erro ao se inscrever na sessão');
+      }
     } catch (error: any) {
-      console.error('Erro ao excluir sessão:', error);
-      alert(error.response?.data?.message || 'Erro ao excluir sessão');
+      console.error('Erro ao se inscrever:', error);
+      setJoinError(error.response?.data?.message || 'Erro ao se inscrever na sessão');
+    } finally {
+      setIsJoining(false);
     }
   };
 
@@ -196,6 +190,24 @@ const SessionDetailPage: React.FC = () => {
     } else {
       navigator.clipboard.writeText(window.location.href);
       alert('Link copiado para a área de transferência!');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Tem certeza que deseja excluir a sessão "${session.title}"?`)) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      await sessionService.delete(id!);
+      toast.success('Sessão excluída com sucesso!');
+      navigate('/profile');
+    } catch (error: any) {
+      console.error('Erro ao excluir sessão:', error);
+      toast.error(error.response?.data?.message || 'Erro ao excluir sessão');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -706,15 +718,131 @@ const SessionDetailPage: React.FC = () => {
                   <Video size={20} />
                   Entrar na Sessão Ao Vivo
                 </Button>
-              ) : (session.status === 'upcoming' || session.status === 'scheduled') && !isMentorOfSession ? (
+              ) : (session.status === 'upcoming' || session.status === 'scheduled') ? (
                 <>
-                  {!isSubscribed ? (
+                  {!user ? (
+                    <div style={{
+                      padding: '1rem',
+                      backgroundColor: '#fef3c7',
+                      borderRadius: '12px',
+                      marginBottom: '0.75rem',
+                      textAlign: 'center'
+                    }}>
+                      <p style={{ fontSize: '0.875rem', color: '#92400e', margin: 0 }}>
+                        Faça login para se inscrever nesta sessão
+                      </p>
+                    </div>
+                  ) : isMentorOfSession ? (
+                    <>
+                      <div style={{
+                        padding: '1rem',
+                        backgroundColor: '#dbeafe',
+                        borderRadius: '12px',
+                        marginBottom: '0.75rem',
+                        textAlign: 'center',
+                        border: '1px solid #93c5fd'
+                      }}>
+                        <p style={{
+                          fontSize: '0.875rem',
+                          color: '#1e40af',
+                          margin: 0,
+                          fontWeight: '600'
+                        }}>
+                          Você é o mentor desta sessão
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                        <button
+                          onClick={() => toast.info('Funcionalidade de edição em desenvolvimento')}
+                          style={{
+                            flex: 1,
+                            padding: '0.75rem',
+                            backgroundColor: '#eff6ff',
+                            color: '#2563eb',
+                            border: '1px solid #bfdbfe',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontWeight: '600',
+                            fontSize: '0.875rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.5rem',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#dbeafe';
+                            e.currentTarget.style.borderColor = '#93c5fd';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = '#eff6ff';
+                            e.currentTarget.style.borderColor = '#bfdbfe';
+                          }}
+                        >
+                          <Edit2 size={16} />
+                          Editar
+                        </button>
+                        <button
+                          onClick={handleDelete}
+                          disabled={isDeleting}
+                          style={{
+                            flex: 1,
+                            padding: '0.75rem',
+                            backgroundColor: isDeleting ? '#fee2e2' : '#fef2f2',
+                            color: '#dc2626',
+                            border: '1px solid #fecaca',
+                            borderRadius: '8px',
+                            cursor: isDeleting ? 'not-allowed' : 'pointer',
+                            fontWeight: '600',
+                            fontSize: '0.875rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.5rem',
+                            transition: 'all 0.2s',
+                            opacity: isDeleting ? 0.6 : 1
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isDeleting) {
+                              e.currentTarget.style.backgroundColor = '#fee2e2';
+                              e.currentTarget.style.borderColor = '#fca5a5';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isDeleting) {
+                              e.currentTarget.style.backgroundColor = '#fef2f2';
+                              e.currentTarget.style.borderColor = '#fecaca';
+                            }
+                          }}
+                        >
+                          {isDeleting ? (
+                            <>
+                              <div style={{
+                                width: '16px',
+                                height: '16px',
+                                border: '2px solid #dc2626',
+                                borderTopColor: 'transparent',
+                                borderRadius: '50%',
+                                animation: 'spin 1s linear infinite'
+                              }} />
+                              Excluindo...
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 size={16} />
+                              Excluir
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </>
+                  ) : isSubscribed ? (
                     <Button
-                      variant="primary"
-                      onClick={handleSubscribe}
+                      variant="success"
+                      disabled
                       style={{
                         width: '100%',
-                        background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                        background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
                         border: 'none',
                         color: 'white',
                         fontWeight: '600',
@@ -727,91 +855,64 @@ const SessionDetailPage: React.FC = () => {
                         gap: '0.5rem'
                       }}
                     >
-                      <UserPlus size={20} />
-                      Inscrever-se na Sessão
+                      <CheckCircle size={20} />
+                      Inscrito
                     </Button>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                    <>
                       <Button
-                        variant="success"
-                        disabled
+                        variant="primary"
+                        onClick={handleSubscribe}
+                        disabled={isJoining || isSubscribed}
                         style={{
                           width: '100%',
-                          background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+                          background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
                           border: 'none',
                           color: 'white',
                           fontWeight: '600',
                           fontSize: '1rem',
                           padding: '1rem 1.5rem',
+                          marginBottom: '0.75rem',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           gap: '0.5rem',
-                          opacity: 1
+                          opacity: isJoining ? 0.7 : 1,
+                          cursor: isJoining ? 'not-allowed' : 'pointer'
                         }}
                       >
-                        <CheckCircle size={20} />
-                        Inscrito
+                        {isJoining ? (
+                          <>
+                            <svg style={{ animation: 'spin 1s linear infinite', width: '20', height: '20' }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Inscrevendo...
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus size={20} />
+                            Inscrever-se na Sessão
+                          </>
+                        )}
                       </Button>
-                      <Button
-                        variant="outline"
-                        onClick={handleUnsubscribe}
-                        style={{
-                          width: '100%',
-                          border: '2px solid #ef4444',
-                          color: '#ef4444',
-                          fontWeight: '600',
-                          fontSize: '0.875rem',
-                          padding: '0.75rem 1.5rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '0.5rem'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = '#fef2f2';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = 'transparent';
-                        }}
-                      >
-                        <X size={18} />
-                        Cancelar Inscrição
-                      </Button>
-                    </div>
+                      {joinError && (
+                        <div style={{
+                          padding: '0.75rem',
+                          backgroundColor: '#fef2f2',
+                          border: '1px solid #fecaca',
+                          borderRadius: '8px',
+                          marginBottom: '0.75rem'
+                        }}>
+                          <p style={{ fontSize: '0.875rem', color: '#dc2626', margin: 0 }}>
+                            {joinError}
+                          </p>
+                        </div>
+                      )}
+                    </>
                   )}
                 </>
               ) : null}
-
-              {/* Botão de Excluir Sessão - apenas para o mentor */}
-              {isMentorOfSession && (
-                <Button
-                  variant="outline"
-                  onClick={handleDeleteSession}
-                  style={{
-                    width: '100%',
-                    border: '2px solid #dc2626',
-                    color: '#dc2626',
-                    fontWeight: '600',
-                    fontSize: '0.875rem',
-                    padding: '0.75rem 1.5rem',
-                    marginBottom: '0.75rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#fef2f2';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
-                >
-                  <Trash2 size={18} />
-                  Excluir Sessão
-                </Button>
-              )}
 
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <Button

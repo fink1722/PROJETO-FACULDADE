@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { sessionService, mentorService } from '../services';
+import { useAuth } from '../contexts/AuthContext';
 import type { Session, Mentor } from '../types';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { Input } from '../components/ui/Input';
-import { useAuth } from '../contexts/AuthContext';
+import { SkeletonSessionCard, SkeletonList, Skeleton } from '../components/ui/Skeleton';
+import { EmptyState } from '../components/ui/EmptyState';
 import {
   Search,
   Filter,
@@ -18,8 +20,7 @@ import {
   ChevronRight,
   X,
   Video,
-  CalendarPlus,
-  Trash2
+  CalendarPlus
 } from 'lucide-react';
 
 const SessionsFeed: React.FC = () => {
@@ -42,28 +43,18 @@ const SessionsFeed: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        console.log('[SessionsFeed] Buscando dados da API...');
-
         const [sessionsResponse, mentorsResponse] = await Promise.all([
           sessionService.getAll(),
           mentorService.getAll()
         ]);
 
-        console.log('[SessionsFeed] Resposta de sessões:', sessionsResponse);
-        console.log('[SessionsFeed] Resposta de mentores:', mentorsResponse);
-
         setSessions(sessionsResponse.data || []);
         setMentors(mentorsResponse.data || []);
-
-        console.log('[SessionsFeed] Sessões carregadas:', sessionsResponse.data?.length || 0);
-        console.log('[SessionsFeed] Mentores carregados:', mentorsResponse.data?.length || 0);
 
         // Extrair tópicos únicos das sessões
         const sessionsList = sessionsResponse.data || [];
         const topics = [...new Set(sessionsList.map((s: Session) => s.topic).filter(Boolean))];
         setSessionTopics(topics as string[]);
-
-        console.log('[SessionsFeed] Dados carregados com sucesso!');
       } catch (err: any) {
         console.error('[SessionsFeed] Erro ao buscar dados:', err);
         console.error('[SessionsFeed] Detalhes do erro:', err.response?.data || err.message);
@@ -77,9 +68,9 @@ const SessionsFeed: React.FC = () => {
   }, []);
 
   // Filtrar sessões abertas (scheduled, upcoming e live)
-  const openSessions = sessions.filter(session => {
-    return session.status === 'scheduled' || session.status === 'upcoming' || session.status === 'live';
-  });
+  const openSessions = sessions.filter(
+    session => session.status === 'scheduled' || session.status === 'upcoming' || session.status === 'live'
+  );
 
   // Aplicar filtros
   const filteredSessions = openSessions.filter(session => {
@@ -118,44 +109,6 @@ const SessionsFeed: React.FC = () => {
     }
   };
 
-  const handleUnsubscribe = async (sessionId: string) => {
-    try {
-      await sessionService.leave(sessionId);
-      alert('Inscrição cancelada com sucesso!');
-      // Recarregar sessões
-      const [sessionsResponse, mentorsResponse] = await Promise.all([
-        sessionService.getAll(),
-        mentorService.getAll()
-      ]);
-      setSessions(sessionsResponse.data || []);
-      setMentors(mentorsResponse.data || []);
-    } catch (error: any) {
-      console.error('Erro ao cancelar inscrição:', error);
-      alert(error.response?.data?.message || 'Erro ao cancelar inscrição');
-    }
-  };
-
-  const handleDeleteSession = async (sessionId: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta sessão? Esta ação não pode ser desfeita.')) {
-      return;
-    }
-
-    try {
-      await sessionService.delete(sessionId);
-      alert('Sessão excluída com sucesso!');
-      // Recarregar sessões
-      const [sessionsResponse, mentorsResponse] = await Promise.all([
-        sessionService.getAll(),
-        mentorService.getAll()
-      ]);
-      setSessions(sessionsResponse.data || []);
-      setMentors(mentorsResponse.data || []);
-    } catch (error: any) {
-      console.error('Erro ao excluir sessão:', error);
-      alert(error.response?.data?.message || 'Erro ao excluir sessão');
-    }
-  };
-
   const formatDate = (date: Date | string) => {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
     if (isNaN(dateObj.getTime())) return 'Data inválida';
@@ -187,23 +140,9 @@ const SessionsFeed: React.FC = () => {
   if (loading) {
     return (
       <div className="dashboard-container">
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '400px',
-          flexDirection: 'column',
-          gap: '1rem'
-        }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            border: '4px solid #f3f4f6',
-            borderTopColor: '#f97316',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite'
-          }} />
-          <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Carregando sessões...</p>
+        <div style={{ padding: '2rem' }}>
+          <Skeleton width="200px" height={32} borderRadius="8px" style={{ marginBottom: '2rem' }} />
+          <SkeletonList count={4} CardComponent={SkeletonSessionCard} />
         </div>
       </div>
     );
@@ -528,35 +467,15 @@ const SessionsFeed: React.FC = () => {
         </div>
 
         {filteredSessions.length === 0 ? (
-          <Card style={{
-            padding: '3rem',
-            textAlign: 'center',
-            backgroundColor: 'white',
-            border: '1px solid #e5e7eb',
-            borderRadius: '20px'
-          }}>
-            <Search size={64} style={{ color: '#d1d5db', margin: '0 auto 1rem' }} />
-            <h3 style={{
-              fontSize: '1.125rem',
-              fontWeight: '600',
-              color: '#111827',
-              marginBottom: '0.5rem'
-            }}>
-              Nenhuma sessão encontrada
-            </h3>
-            <p style={{
-              color: '#6b7280',
-              marginBottom: '1rem'
-            }}>
-              Tente ajustar os filtros ou fazer uma nova busca
-            </p>
-            <Button variant="outline" onClick={clearFilters}>
-              Limpar Filtros
-            </Button>
-          </Card>
+          <EmptyState
+            type={searchTerm || selectedTopic || selectedDate ? 'search' : 'sessions'}
+            actionLabel={searchTerm || selectedTopic || selectedDate ? 'Limpar Filtros' : undefined}
+            onAction={clearFilters}
+          />
         ) : (
           filteredSessions.map((session) => {
             const mentor = mentors.find(m => m.id === session.mentorId);
+            const isMentorOfSession = user?.userType === 'mentor' && mentor?.userId === user?.id;
             const availableSpots = getAvailableSpots(session);
 
             return (
@@ -689,106 +608,38 @@ const SessionsFeed: React.FC = () => {
 
                     {/* Ação */}
                     <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '0.5rem' }}>
-                      {/* Botão de excluir para o mentor */}
-                      {user?.userType === 'mentor' && (() => {
-                        const mentor = mentors.find(m => m.id === session.mentorId);
-                        return mentor?.userId === user?.id;
-                      })() && (
+                      {(session.status === 'upcoming' || session.status === 'scheduled') && !isMentorOfSession && (
                         <Button
-                          variant="outline"
-                          onClick={() => handleDeleteSession(session.id)}
+                          variant="primary"
+                          onClick={() => handleSubscribe(session.id)}
                           style={{
-                            border: '2px solid #dc2626',
-                            color: '#dc2626',
+                            background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                            border: 'none',
+                            color: 'white',
                             fontWeight: '600',
                             borderRadius: '12px',
                             padding: '0.5rem 1rem',
                             transition: 'all 0.2s ease',
+                            boxShadow: '0 2px 4px rgba(249, 115, 22, 0.3)',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '0.5rem',
                             whiteSpace: 'nowrap'
                           }}
                           onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = '#fef2f2';
+                            e.currentTarget.style.background = 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)';
+                            e.currentTarget.style.boxShadow = '0 4px 8px rgba(249, 115, 22, 0.4)';
+                            e.currentTarget.style.transform = 'translateY(-1px)';
                           }}
                           onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = 'transparent';
+                            e.currentTarget.style.background = 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)';
+                            e.currentTarget.style.boxShadow = '0 2px 4px rgba(249, 115, 22, 0.3)';
+                            e.currentTarget.style.transform = 'translateY(0)';
                           }}
                         >
-                          <Trash2 size={16} />
-                          Excluir Sessão
+                          <CalendarPlus size={16} />
+                          Inscrever-se
                         </Button>
-                      )}
-
-                      {/* Botões de inscrição apenas se NÃO for o mentor */}
-                      {(session.status === 'upcoming' || session.status === 'scheduled') && !(() => {
-                        if (user?.userType === 'mentor') {
-                          const mentor = mentors.find(m => m.id === session.mentorId);
-                          return mentor?.userId === user?.id;
-                        }
-                        return false;
-                      })() && (
-                        <>
-                          {!session.isEnrolled ? (
-                            <Button
-                              variant="primary"
-                              onClick={() => handleSubscribe(session.id)}
-                              style={{
-                                background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-                                border: 'none',
-                                color: 'white',
-                                fontWeight: '600',
-                                borderRadius: '12px',
-                                padding: '0.5rem 1rem',
-                                transition: 'all 0.2s ease',
-                                boxShadow: '0 2px 4px rgba(249, 115, 22, 0.3)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                whiteSpace: 'nowrap'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)';
-                                e.currentTarget.style.boxShadow = '0 4px 8px rgba(249, 115, 22, 0.4)';
-                                e.currentTarget.style.transform = 'translateY(-1px)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)';
-                                e.currentTarget.style.boxShadow = '0 2px 4px rgba(249, 115, 22, 0.3)';
-                                e.currentTarget.style.transform = 'translateY(0)';
-                              }}
-                            >
-                              <CalendarPlus size={16} />
-                              Inscrever-se
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="outline"
-                              onClick={() => handleUnsubscribe(session.id)}
-                              style={{
-                                border: '2px solid #ef4444',
-                                color: '#ef4444',
-                                fontWeight: '600',
-                                borderRadius: '12px',
-                                padding: '0.5rem 1rem',
-                                transition: 'all 0.2s ease',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                whiteSpace: 'nowrap'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#fef2f2';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = 'transparent';
-                              }}
-                            >
-                              ✓ Inscrito - Cancelar
-                            </Button>
-                          )}
-                        </>
                       )}
 
                       <Button

@@ -17,9 +17,18 @@ export const getAllGoals = async (req, res) => {
     params.push(parseInt(limit), parseInt(offset));
 
     const goals = await db(query).all(...params);
-    res.json({ success: true, data: goals });
+    res.json({ 
+      success: true, 
+      data: goals,
+      count: goals.length 
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Erro ao buscar metas', error: error.message });
+    console.error('Erro ao buscar metas:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erro ao buscar metas', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
@@ -33,7 +42,12 @@ export const getGoalById = async (req, res) => {
 
     res.json({ success: true, data: goal });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Erro ao buscar meta', error: error.message });
+    console.error('Erro ao buscar meta:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erro ao buscar meta', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
@@ -51,9 +65,20 @@ export const createGoal = async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .run(goalId, req.user.id, title, description || '', category, priority || 'medium', 'not-started', progress || 0, targetDate || null);
 
-    res.status(201).json({ success: true, message: 'Meta criada', data: { goalId } });
+    const createdGoal = await db('SELECT * FROM goals WHERE id = ?').get(goalId);
+    
+    res.status(201).json({ 
+      success: true, 
+      message: 'Meta criada com sucesso', 
+      data: createdGoal
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Erro ao criar meta', error: error.message });
+    console.error('Erro ao criar meta:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erro ao criar meta', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
@@ -70,9 +95,20 @@ export const updateGoal = async (req, res) => {
     await db(`UPDATE goals SET title = ?, description = ?, category = ?, priority = ?, status = ?, progress = ?, targetDate = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`)
       .run(title || goal.title, description || goal.description, category || goal.category, priority || goal.priority, status || goal.status, progress !== undefined ? progress : goal.progress, targetDate || goal.targetDate, req.params.id);
 
-    res.json({ success: true, message: 'Meta atualizada' });
+    const updatedGoal = await db('SELECT * FROM goals WHERE id = ?').get(req.params.id);
+
+    res.json({ 
+      success: true, 
+      message: 'Meta atualizada com sucesso',
+      data: updatedGoal
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Erro ao atualizar meta', error: error.message });
+    console.error('Erro ao atualizar meta:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erro ao atualizar meta', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
@@ -85,8 +121,17 @@ export const deleteGoal = async (req, res) => {
     }
 
     await db('DELETE FROM goals WHERE id = ?').run(req.params.id);
-    res.json({ success: true, message: 'Meta deletada' });
+    res.json({ 
+      success: true, 
+      message: 'Meta deletada com sucesso',
+      data: { goalId: req.params.id }
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Erro ao deletar meta', error: error.message });
+    console.error('Erro ao deletar meta:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erro ao deletar meta', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };

@@ -47,21 +47,25 @@ console.log(`✅ ${users.length} usuários criados!\n`);
 
 // Criar mentores
 console.log('🎓 Criando mentores...');
+const mentor1Id = randomUUID();
+const mentor2Id = randomUUID();
+const mentor3Id = randomUUID();
+
 const mentors = [
   {
-    id: '1', userId: 'user3', name: 'João Silva', email: 'joao@email.com',
+    id: mentor1Id, userId: 'user3', name: 'João Silva', email: 'joao@email.com',
     bio: 'Desenvolvedor Full Stack com 8 anos de experiência.',
     specialties: ['JavaScript', 'React', 'Node.js', 'Python'],
     experience: 8, rating: 4.9, totalSessions: 156
   },
   {
-    id: '2', userId: 'admin1', name: 'Admin Sistema', email: 'admin@email.com',
+    id: mentor2Id, userId: 'admin1', name: 'Admin Sistema', email: 'admin@email.com',
     bio: 'Engenheiro de Software sênior.',
     specialties: ['Algoritmos', 'Java', 'C++', 'Liderança'],
     experience: 10, rating: 4.8, totalSessions: 203
   },
   {
-    id: '3', userId: null, name: 'Maria Oliveira', email: 'maria.oliveira@example.com',
+    id: mentor3Id, userId: null, name: 'Maria Oliveira', email: 'maria.oliveira@example.com',
     bio: 'Especialista em UX/UI Design.',
     specialties: ['UX Design', 'UI Design', 'Figma'],
     experience: 6, rating: 4.9, totalSessions: 89
@@ -111,16 +115,28 @@ console.log(`✅ ${mentees.length} aprendizes criados!\n`);
 console.log('📅 Criando sessões...');
 const sessions = [
   {
-    id: '1', mentorId: '1', title: 'Desenvolvimento de Liderança',
+    id: randomUUID(), mentorId: mentor1Id, title: 'Desenvolvimento de Liderança',
     description: 'Sessão prática sobre liderança.',
     scheduledAt: '2025-09-05T14:00:00', duration: 90,
     maxParticipants: 20, currentParticipants: 20, status: 'completed'
   },
   {
-    id: '2', mentorId: '2', title: 'Carreira em Tecnologia',
+    id: randomUUID(), mentorId: mentor2Id, title: 'Carreira em Tecnologia',
     description: 'Como construir carreira em tech.',
     scheduledAt: '2025-09-18T19:00:00', duration: 60,
     maxParticipants: 15, currentParticipants: 8, status: 'upcoming'
+  },
+  {
+    id: randomUUID(), mentorId: mentor1Id, title: 'React Avançado: Hooks e Performance',
+    description: 'Aprenda técnicas avançadas de React, incluindo hooks customizados e otimizações de performance.',
+    scheduledAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), duration: 90,
+    maxParticipants: 25, currentParticipants: 5, status: 'upcoming'
+  },
+  {
+    id: randomUUID(), mentorId: mentor1Id, title: 'Node.js e Express: Backend Moderno',
+    description: 'Construa APIs RESTful robustas com Node.js e Express.',
+    scheduledAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), duration: 120,
+    maxParticipants: 20, currentParticipants: 3, status: 'scheduled'
   }
 ];
 

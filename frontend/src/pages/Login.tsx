@@ -18,15 +18,21 @@ const Login: React.FC = () => {
     setError('');
     setIsLoading(true);
 
-    const success = await login(email, password);
+    try {
+      const success = await login(email, password);
 
-    if (success) {
-      navigate('/');
-    } else {
-      setError('Email ou senha incorretos');
+      if (success) {
+        navigate('/');
+      } else {
+        setError('Email ou senha incorretos. Verifique suas credenciais.');
+      }
+    } catch (err: any) {
+      console.error('Erro no login:', err);
+      const errorMessage = err.response?.data?.message || 'Erro ao fazer login. Tente novamente.';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   const handleQuickLogin = async (userEmail: string, userPassword: string) => {
@@ -35,15 +41,21 @@ const Login: React.FC = () => {
     setError('');
     setIsLoading(true);
 
-    const success = await login(userEmail, userPassword);
+    try {
+      const success = await login(userEmail, userPassword);
 
-    if (success) {
-      navigate('/');
-    } else {
-      setError('Email ou senha incorretos');
+      if (success) {
+        navigate('/');
+      } else {
+        setError('Email ou senha incorretos. Verifique suas credenciais.');
+      }
+    } catch (err: any) {
+      console.error('Erro no login rápido:', err);
+      const errorMessage = err.response?.data?.message || 'Erro ao fazer login. Tente novamente.';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   // Remover scroll da página quando o componente montar

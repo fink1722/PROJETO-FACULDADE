@@ -40,6 +40,7 @@ export interface PaginatedResponse<T> {
 // Tipos específicos do sistema de mentoria
 export interface Mentor {
   id: string;
+  userId?: string;
   name: string;
   email: string;
   avatar?: string;
@@ -92,6 +93,7 @@ export interface Session {
   objectives?: string[];
   documents?: string[]; // IDs dos documentos
   hasDocuments?: boolean;
+  isEnrolled?: boolean; // Se o usuário atual está inscrito
   createdAt: Date;
   updatedAt: Date;
 }

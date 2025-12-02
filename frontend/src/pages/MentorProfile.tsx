@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -6,6 +6,10 @@ import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/Input';
 import DocumentCard from '../components/DocumentCard';
 import { mockDocuments } from '../data/mockData';
+import { mentorService } from '../services';
+import { SkeletonCard, SkeletonList } from '../components/ui/Skeleton';
+import { EmptyState } from '../components/ui/EmptyState';
+import { useToastContext } from '../contexts/ToastContext';
 import { 
   User, 
   Mail, 
@@ -31,17 +35,57 @@ import {
 } from 'lucide-react';
 
 import ProfileUploader from '../components/ProfileUploader';
+import MentorSessionsManager from '../components/MentorSessionsManager';
 
 const MentorProfile: React.FC = () => {
   const { user } = useAuth();
+  const toast = useToastContext();
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [mentorData, setMentorData] = useState<any>(null);
   
-  // Documentos do mentor (assumindo user.id como mentorId)
-  const mentorDocuments = mockDocuments.filter(doc => doc.mentorId === user?.id || doc.mentorId === '1');
+  // Buscar dados do mentor do backend
+  useEffect(() => {
+    const fetchMentorData = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Buscar todos os mentores e encontrar o que corresponde ao userId
+        const mentorsResponse = await mentorService.getAll();
+        const mentor = mentorsResponse.data?.find((m: any) => m.userId === user.id);
+
+        if (mentor) {
+          // Buscar dados completos do mentor
+          const mentorDetails = await mentorService.getById(mentor.id);
+          setMentorData(mentorDetails.data);
+        } else {
+          setError('Perfil de mentor não encontrado. Certifique-se de que você está logado como mentor.');
+        }
+      } catch (err: any) {
+        console.error('Erro ao buscar dados do mentor:', err);
+        setError('Erro ao carregar perfil do mentor.');
+        toast.error('Erro ao carregar perfil do mentor.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMentorData();
+  }, [user, toast]);
+
+  // Documentos do mentor
+  const mentorDocuments = mockDocuments.filter(doc => doc.mentorId === mentorData?.id || doc.mentorId === user?.id);
   const totalDocDownloads = mentorDocuments.reduce((sum, doc) => sum + doc.downloadCount, 0);
   const totalDocViews = mentorDocuments.reduce((sum, doc) => sum + doc.viewCount, 0);
   
-  // Estado do perfil (mock data - em produção viria do backend)
+  // Estado do perfil (combinando dados do backend com dados do usuário)
   const [profile, setProfile] = useState({
     name: user?.name || 'Usuário',
     email: user?.email || '',
@@ -62,6 +106,32 @@ const MentorProfile: React.FC = () => {
       website: 'https://seusite.com'
     }
   });
+
+  // Atualizar perfil quando mentorData mudar
+  useEffect(() => {
+    if (mentorData) {
+      setProfile({
+        name: user?.name || mentorData.name || 'Usuário',
+        email: user?.email || mentorData.email || '',
+        bio: mentorData.bio || 'Profissional experiente dedicado a compartilhar conhecimento e ajudar outros a crescerem em suas carreiras.',
+        specialties: mentorData.specialties || [],
+        experience: mentorData.experience ? `${mentorData.experience} anos` : '8 anos',
+        company: 'Tech Company',
+        position: 'Senior Developer',
+        sessionsCreated: mentorData.totalSessions || 24,
+        totalStudents: 156,
+        rating: mentorData.rating || 4.8,
+        totalReviews: 89,
+        socialMedia: {
+          linkedin: 'https://linkedin.com/in/seuperfil',
+          github: 'https://github.com/seuperfil',
+          twitter: 'https://twitter.com/seuperfil',
+          instagram: 'https://instagram.com/seuperfil',
+          website: 'https://seusite.com'
+        }
+      });
+    }
+  }, [mentorData, user]);
 
   const [editForm, setEditForm] = useState({ ...profile });
   const [newSpecialty, setNewSpecialty] = useState('');
@@ -117,6 +187,31 @@ const MentorProfile: React.FC = () => {
       date: '2 semanas atrás'
     }
   ];
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="dashboard-container">
+        <div style={{ padding: '2rem' }}>
+          <SkeletonCard />
+          <SkeletonList count={2} />
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !mentorData) {
+    return (
+      <div className="dashboard-container">
+        <EmptyState
+          type="generic"
+          title="Perfil não encontrado"
+          message={error || 'Não foi possível carregar o perfil do mentor.'}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-container">
@@ -1468,6 +1563,47 @@ const MentorProfile: React.FC = () => {
           </Card>
         </div>
       </div>
+
+      {/* Minhas Sessões - Largura Total */}
+      <Card style={{
+        backgroundColor: 'white',
+        border: '1px solid #e5e7eb',
+        borderRadius: '20px',
+        overflow: 'hidden',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+        transition: 'all 0.2s ease',
+        marginTop: '2rem'
+      }}>
+        <div style={{
+          padding: '1.25rem 1.5rem',
+          borderBottom: '1px solid #f1f5f9',
+          background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.1) 0%, rgba(234, 88, 12, 0.1) 100%)',
+          borderLeft: '4px solid #f97316'
+        }}>
+          <h3 style={{
+            fontSize: '1.25rem',
+            fontWeight: '600',
+            color: '#7c2d12',
+            margin: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            <Calendar size={20} style={{ color: '#f97316' }} />
+            Gerenciar Sessões
+          </h3>
+          <p style={{
+            fontSize: '0.875rem',
+            color: '#9a3412',
+            margin: '0.25rem 0 0 0'
+          }}>
+            Visualize, edite e exclua suas sessões de mentoria
+          </p>
+        </div>
+        <div style={{ padding: '1.5rem' }}>
+          <MentorSessionsManager />
+        </div>
+      </Card>
 
       {/* Meus Documentos - Largura Total */}
       <Card style={{

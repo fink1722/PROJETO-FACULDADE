@@ -5,24 +5,28 @@ import {
   createSession,
   updateSession,
   deleteSession,
-  joinSession,
-  leaveSession,
-  getMyEnrolledSessions
+  joinSession
 } from '../controllers/sessionController.js';
 import { authenticate, isMentor, optionalAuthenticate } from '../middleware/auth.js';
+import {
+  validateCreateSession,
+  validateUpdateSession,
+  validateGetSessionById,
+  validateDeleteSession,
+  validateListSessions,
+  validateJoinSession
+} from '../validators/sessionValidator.js';
 
 const router = express.Router();
 
-// Rotas protegidas (devem vir ANTES das rotas com :id)
-router.get('/my/enrolled', authenticate, getMyEnrolledSessions);
-router.post('/', authenticate, isMentor, createSession);
-router.post('/:id/join', authenticate, joinSession);
-router.post('/:id/leave', authenticate, leaveSession);
-router.put('/:id', authenticate, updateSession);
-router.delete('/:id', authenticate, deleteSession);
-
 // Rotas públicas (com autenticação opcional para mostrar isEnrolled)
-router.get('/', optionalAuthenticate, getAllSessions);
-router.get('/:id', optionalAuthenticate, getSessionById);
+router.get('/', validateListSessions, optionalAuthenticate, getAllSessions);
+router.get('/:id', validateGetSessionById, optionalAuthenticate, getSessionById);
+
+// Rotas protegidas
+router.post('/', validateCreateSession, authenticate, isMentor, createSession);
+router.put('/:id', validateUpdateSession, authenticate, updateSession);
+router.delete('/:id', validateDeleteSession, authenticate, deleteSession);
+router.post('/:id/join', validateJoinSession, authenticate, joinSession);
 
 export default router;

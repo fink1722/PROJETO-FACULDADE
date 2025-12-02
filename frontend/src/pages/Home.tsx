@@ -4,6 +4,8 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Avatar } from '../components/ui/Avatar';
+import { Skeleton, SkeletonCard, SkeletonList } from '../components/ui/Skeleton';
+import { EmptyState } from '../components/ui/EmptyState';
 import { sessionService, mentorService } from '../services';
 import type { Session, Mentor } from '../types';
 import { formatDate, formatTime, getStatusText } from '../utils/sessionUtils';
@@ -53,9 +55,9 @@ const Dashboard: React.FC = () => {
   }, []);
 
   const handleBookSession = useCallback((mentorId: string) => {
-    // TODO: Implementar agendamento de sessão
-    alert(`Redirecionando para agendamento com mentor ${mentorId}`);
-  }, []);
+    // Redirecionar para página de sessões filtrando pelo mentor selecionado
+    navigate(`/sessions?mentorId=${mentorId}`);
+  }, [navigate]);
 
   const handleViewDetails = useCallback((sessionId: string) => {
     navigate(`/sessions/${sessionId}`);
@@ -74,23 +76,9 @@ const Dashboard: React.FC = () => {
   if (loading) {
     return (
       <div className="dashboard-container">
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '400px',
-          flexDirection: 'column',
-          gap: '1rem'
-        }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            border: '4px solid #f3f4f6',
-            borderTopColor: '#f97316',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite'
-          }} />
-          <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Carregando dashboard...</p>
+        <div style={{ padding: '2rem' }}>
+          <Skeleton width="200px" height={32} borderRadius="8px" style={{ marginBottom: '2rem' }} />
+          <SkeletonList count={3} CardComponent={SkeletonCard} />
         </div>
       </div>
     );

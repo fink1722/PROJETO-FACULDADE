@@ -4,10 +4,26 @@ import { Document, Mentor, Session } from '../models/index.js';
 export const getAllDocuments = async (req, res) => {
   try {
     const { sessionId, mentorId, fileType, search, limit, offset } = req.query;
-    const documents = await Document.findAll({ sessionId, mentorId, fileType, search, limit, offset });
-    res.json({ success: true, data: documents });
+    const documents = await Document.findAll({ 
+      sessionId, 
+      mentorId, 
+      fileType, 
+      search, 
+      limit: Math.min(parseInt(limit) || 50, 100), 
+      offset: parseInt(offset) || 0 
+    });
+    res.json({ 
+      success: true, 
+      data: documents,
+      count: documents.length
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Erro ao buscar documentos', error: error.message });
+    console.error('Erro ao buscar documentos:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erro ao buscar documentos', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
@@ -20,7 +36,12 @@ export const getDocumentById = async (req, res) => {
 
     res.json({ success: true, data: document });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Erro ao buscar documento', error: error.message });
+    console.error('Erro ao buscar documento:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erro ao buscar documento', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
@@ -58,9 +79,20 @@ export const createDocument = async (req, res) => {
 
     await Session.updateHasDocuments(sessionId, true);
 
-    res.status(201).json({ success: true, message: 'Documento criado', data: { documentId } });
+    const createdDocument = await Document.findById(documentId);
+
+    res.status(201).json({ 
+      success: true, 
+      message: 'Documento criado com sucesso', 
+      data: createdDocument
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Erro ao criar documento', error: error.message });
+    console.error('Erro ao criar documento:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erro ao criar documento', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
@@ -81,9 +113,20 @@ export const updateDocument = async (req, res) => {
       isPublic: isPublic !== undefined ? isPublic : document.isPublic
     });
 
-    res.json({ success: true, message: 'Documento atualizado' });
+    const updatedDocument = await Document.findById(req.params.id);
+
+    res.json({ 
+      success: true, 
+      message: 'Documento atualizado com sucesso',
+      data: updatedDocument
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Erro ao atualizar documento', error: error.message });
+    console.error('Erro ao atualizar documento:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erro ao atualizar documento', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
@@ -98,9 +141,18 @@ export const deleteDocument = async (req, res) => {
     }
 
     await Document.delete(req.params.id);
-    res.json({ success: true, message: 'Documento deletado' });
+    res.json({ 
+      success: true, 
+      message: 'Documento deletado com sucesso',
+      data: { documentId: req.params.id }
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Erro ao deletar documento', error: error.message });
+    console.error('Erro ao deletar documento:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erro ao deletar documento', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 

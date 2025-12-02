@@ -47,11 +47,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (response.success) {
         setUser(response.data.user);
+        // Salvar no localStorage também (já é feito no authService, mas garantindo)
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        localStorage.setItem('token', response.data.token);
         return true;
       }
       return false;
     } catch (error: any) {
       console.error('Erro no login:', error);
+      // Log detalhado para debug
+      if (error.response) {
+        console.error('Resposta do servidor:', error.response.data);
+        console.error('Status:', error.response.status);
+      }
       return false;
     }
   };

@@ -40,6 +40,7 @@ export const register = async (req, res) => {
         userId,
         name,
         email,
+        avatar,
         bio: '',
         experience: 0,
         rating: 0,
@@ -162,6 +163,74 @@ export const updateProfile = async (req, res) => {
       data: userWithoutPassword
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Erro ao atualizar perfil', error: error.message });
+    console.error('Erro ao atualizar perfil:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erro ao atualizar perfil', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * DELETE /api/auth/account
+ * Deleta a conta do usuário autenticado
+ * 
+ * Requer autenticação: Sim
+ * 
+ * Observação:
+ * - Deleta o usuário e todos os dados relacionados (cascade delete)
+ * - Se for mentor, deleta o perfil de mentor também
+ * - Se for aprendiz, deleta o perfil de aprendiz também
+ */
+export const deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Usuário não encontrado' 
+      });
+    }
+
+    // Se for mentor, verificar se tem sessões futuras
+    if (user.userType === 'mentor') {
+      const db = (await import('../config/database.js')).default.prepare;
+      const mentor = await Mentor.findByUserId(userId);
+      
+      if (mentor) {
+        const futureSessions = await db(`
+          SELECT COUNT(*) as count 
+          FROM sessions 
+          WHERE mentorId = ? 
+          AND status IN ('scheduled', 'upcoming', 'live')
+        `).get(mentor.id);
+
+        if (futureSessions && futureSessions.count > 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'Não é possível deletar a conta com sessões futuras agendadas. Cancele ou conclua as sessões primeiro.'
+          });
+        }
+      }
+    }
+
+    // Deletar usuário (cascade delete remove mentor/mentee e dados relacionados)
+    await User.delete(userId);
+
+    res.json({ 
+      success: true, 
+      message: 'Conta deletada com sucesso',
+      data: { userId }
+    });
+  } catch (error) {
+    console.error('Erro ao deletar conta:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erro ao deletar conta', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
